@@ -2,13 +2,21 @@ import express, { request, response } from "express";
 import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "passport";
+import mongoose, { mongo } from "mongoose";
 
 import routes from "./routes/index.mjs";
 import { mockUsers } from "./utils/constants.mjs";
-import "./strategies/local-startegy.mjs"
+import "./strategies/local-startegy.mjs";
 
 const app = express();
 
+mongoose
+  .connect("mongodb://localhost/express_tutorial")
+  .then(() => console.log("connected to database"))
+  .catch((err) => console.log(`Error: ${err}`));
+
+
+  
 app.use(express.json());
 app.use(cookieParser("helloworld"));
 app.use(
@@ -21,13 +29,29 @@ app.use(
     },
   }),
 );
-app.use(passport.initialize())
-app.use(passport.session())
+app.use(passport.initialize());
+app.use(passport.session());
 app.use(routes);
 
 app.post("/api/auth", passport.authenticate("local"), (request, response) => {
-  
-})
+  response.sendStatus(200);
+});
+
+app.get("/api/auth/status", (request, response) => {
+  console.log("inside /auth/status endpoint");
+  console.log(request.user);
+  console.log(request.session);
+  request.user ? response.send(request.user) : response.sendStatus(401);
+});
+
+app.post("/api/auth/logout", (request, response) => {
+  if (!request.user) return response.sendStatus(401);
+
+  request.logout((err) => {
+    if (err) return response.sendStatus(400);
+    response.sendStatus(200);
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 
