@@ -55,9 +55,15 @@ router.post(
   "/api/users",
   checkSchema(createUserValidationSchema),
   async (request, response) => {
-    const { body } = request;
-    const newUser = new User(body);
+    // check errors on adding a new user, and send the missing values back to the client
+    const result = validationResult(request);
+    if (!result.isEmpty()) return response.status(400).send(result.array());
 
+    const data = matchedData(request);
+    console.log(data);
+    const newUser = new User(data);
+
+    // send user to db, and await for response
     try {
       const savedUser = await newUser.save();
       return response.status(201).send(newUser);

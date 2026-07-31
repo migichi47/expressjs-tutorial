@@ -15,7 +15,6 @@ mongoose
   .then(() => console.log("connected to database"))
   .catch((err) => console.log(`Error: ${err}`));
 
-
   
 app.use(express.json());
 app.use(cookieParser("helloworld"));
