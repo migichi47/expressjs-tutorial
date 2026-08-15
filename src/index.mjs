@@ -3,6 +3,7 @@ import cookieParser from "cookie-parser";
 import session from "express-session";
 import passport from "passport";
 import mongoose, { mongo } from "mongoose";
+import MongoStore from "connect-mongo";
 
 import routes from "./routes/index.mjs";
 import { mockUsers } from "./utils/constants.mjs";
@@ -15,7 +16,6 @@ mongoose
   .then(() => console.log("connected to database"))
   .catch((err) => console.log(`Error: ${err}`));
 
-  
 app.use(express.json());
 app.use(cookieParser("helloworld"));
 app.use(
@@ -26,6 +26,9 @@ app.use(
     cookie: {
       maxAge: 60000 * 60,
     },
+    store: MongoStore.create({
+      client: mongoose.connection.getClient(),
+    }),
   }),
 );
 app.use(passport.initialize());
