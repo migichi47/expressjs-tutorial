@@ -1,104 +1,76 @@
-import express, { request, response } from "express";
+import express, { request } from "express";
+import routes from "./routes/index.mjs";
+import cookieParser from "cookie-parser";
+import session from "express-session";
+import { mockUsers } from "./utils/constants.mjs";
+import passport from "passport";
 
 const app = express();
+
 app.use(express.json());
+app.use(cookieParser("helloworld"));
+app.use(
+  session({
+    secret: "anson the dev",
+    saveUninitialized: false,
+    resave: false,
+    cookie: {
+      maxAge: 60000 * 60,
+    },
+  }),
+);
+app.use(passport.initialize());
+app.use(passport.session());
+app.use(routes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Running on Port ${PORT}`);
 });
 
-const loggingMiddleware = (request, response, next) => {
-  console.log(`${request.method} - ${request.url}`);
-  next();
-};
+app.get("/", (request, response) => {
+  console.log(request.session);
+  console.log(request.session.id);
+  request.session.visited = true;
+  response.cookie("hello", "world", { maxAge: 30000, signed: true });
+  response.status(201).send({ msg: "Hello" });
+});
 
-const resolveIndexByUserId = (request, response, next) => {
+app.post("/api/auth", (req, res) => {
   const {
-    params: { id },
-  } = request;
+    body: { username, password },
+  } = req;
+  const findUser = mockUsers.find((user) => user.username === username);
+  if (!findUser || findUser.password !== password)
+    return res.status(401).send({ msg: "BAD CREDENTIALS" });
 
-  const parsedId = parseInt(id);
-  if (isNaN(parsedId))
-    return response.status(400).send({ msg: "Bad request. Invalid id" });
-  const findUserIndex = mockUsers.findIndex((user) => user.id === parsedId);
-  if (findUserIndex === -1) return response.sendStatus(404);
-  request.findUserIndex = findUserIndex;
-  next();
-};
-
-
-const mockUsers = [
-  { id: 1, username: "anson", displayName: "Anson" },
-  { id: 2, username: "jack", displayName: "Jack" },
-  { id: 3, username: "adam", displayName: "Adam" },
-  { id: 4, username: "tina", displayName: "Tina" },
-  { id: 5, username: "jason", displayName: "Jason" },
-  { id: 6, username: "henry", displayName: "Henry" },
-  { id: 7, username: "marilyn", displayName: "Marilyn" },
-];
-
-app.get(
-  "/",
-  (request, response, next) => {
-    console.log("Base URL");
-    next();
-  },
-  (request, response) => {
-    response.status(201).send({ msg: "Hello" });
-  },
-);
-
-app.get("/api/users", (request, response) => {
-  console.log(request.query);
-  const {
-    query: { filter, value },
-  } = request;
-
-  if (filter && value)
-    return response.send(
-      mockUsers.filter((user) => {
-        return user[filter].includes(value);
-      }),
-    );
-  return response.send(mockUsers);
+  req.session.user = findUser;
+  return res.status(200).send(findUser);
 });
 
-app.post("/api/users", (request, response) => {
-  console.log(request.body);
-  const { body } = request;
-  const newUser = { id: mockUsers[mockUsers.length - 1].id + 1, ...body };
-  mockUsers.push(newUser);
-  return response.status(201).send(mockUsers);
+app.get("/api/auth/status", (req, res) => {
+  req.sessionStore.get(req.sessionID, (err, session) => {
+    console.log(session);
+  });
+  return req.session.user
+    ? res.status(200).send(req.session.user)
+    : res.status(401).send({ msg: "Not Authenticated" });
 });
 
-app.get("/api/users/:id", resolveIndexByUserId, (request, response) => {
-  const { findUserIndex } = request;
-  const findUser = mockUsers[findUserIndex];
-  if (!findUser) return response.sendStatus(404);
-  return response.send(findUser);
+app.post("/api/cart", (req, res) => {
+  if (!req.session.user) return res.sendStatus(401);
+  const { body: item } = req;
+
+  const { cart } = req.session;
+  if (cart) {
+    cart.push(item);
+  } else {
+    req.session.cart = [item];
+  }
+  return res.status(201).send(item);
 });
 
-
-app.put("/api/users/:id", resolveIndexByUserId, (request, response) => {
-  const { body, findUserIndex } = request;
-  mockUsers[findUserIndex] = { id: mockUsers[findUserIndex].id, ...body };
-  return response.status(200).send(mockUsers[findUserIndex]);
+app.get("/api/cart", (req, res) => {
+  if (!req.session.user) return res.sendStatus(401);
+  return res.send(req.session.cart ?? []);
 });
-
-app.patch("/api/users/:id", resolveIndexByUserId, (request, response) => {
-  const { body, findUserIndex } = request;
-  mockUsers[findUserIndex] = { ...mockUsers[findUserIndex], ...body };
-  return response.status(200).send(mockUsers);
-});
-
-app.delete("/api/users/:id", resolveIndexByUserId, (request, response) => {
-  const { findUserIndex } = request;
-  mockUsers.splice(findUserIndex, 1);
-  return response.status(200).send(mockUsers);
-});
-
-
-// localhost:3000
-// localhost:3000/users
-// localhost:3000/products
