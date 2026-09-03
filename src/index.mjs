@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import session from "express-session";
 import { mockUsers } from "./utils/constants.mjs";
 import passport from "passport";
+import "./routes/strategies/local-strategy.mjs";
 
 const app = express();
 
@@ -23,6 +24,8 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(routes);
 
+app.post("/api/auth", passport.authenticate("local"), (req, res) => {});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Running on Port ${PORT}`);
@@ -34,43 +37,4 @@ app.get("/", (request, response) => {
   request.session.visited = true;
   response.cookie("hello", "world", { maxAge: 30000, signed: true });
   response.status(201).send({ msg: "Hello" });
-});
-
-app.post("/api/auth", (req, res) => {
-  const {
-    body: { username, password },
-  } = req;
-  const findUser = mockUsers.find((user) => user.username === username);
-  if (!findUser || findUser.password !== password)
-    return res.status(401).send({ msg: "BAD CREDENTIALS" });
-
-  req.session.user = findUser;
-  return res.status(200).send(findUser);
-});
-
-app.get("/api/auth/status", (req, res) => {
-  req.sessionStore.get(req.sessionID, (err, session) => {
-    console.log(session);
-  });
-  return req.session.user
-    ? res.status(200).send(req.session.user)
-    : res.status(401).send({ msg: "Not Authenticated" });
-});
-
-app.post("/api/cart", (req, res) => {
-  if (!req.session.user) return res.sendStatus(401);
-  const { body: item } = req;
-
-  const { cart } = req.session;
-  if (cart) {
-    cart.push(item);
-  } else {
-    req.session.cart = [item];
-  }
-  return res.status(201).send(item);
-});
-
-app.get("/api/cart", (req, res) => {
-  if (!req.session.user) return res.sendStatus(401);
-  return res.send(req.session.cart ?? []);
 });
