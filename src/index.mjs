@@ -1,10 +1,9 @@
-import express, { request } from "express";
-import routes from "./routes/index.mjs";
+import express from "express";
 import cookieParser from "cookie-parser";
-import session from "express-session";
-import { mockUsers } from "./utils/constants.mjs";
 import passport from "passport";
+import session from "express-session";
 import "./routes/strategies/local-strategy.mjs";
+import routes from "./routes/index.mjs";
 
 const app = express();
 
@@ -24,7 +23,23 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(routes);
 
-app.post("/api/auth", passport.authenticate("local"), (req, res) => {});
+app.post("/api/auth", passport.authenticate("local"), (req, res) => {
+  res.sendStatus(200);
+});
+
+app.get("/api/auth/status", (req, res) => {
+  console.log(`Inside /auth/status endpoint`);
+  console.log(req.user);
+  return req.user ? res.send(req.user) : res.sendStatus(401);
+});
+
+app.post("/api/auth/logout", (req, res) => {
+  if (!req.user) return res.sendStatus(401);
+  req.logout((err) => {
+    if (err) return res.sendDate(400);
+    res.send(200);
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
