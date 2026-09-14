@@ -8,6 +8,15 @@ passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
+passport.deserializeUser(async (id, done) => {
+  try {
+    const findUser = await DiscordUser.findById(id);
+    return findUser ? done(null, findUser) : done(null, null);
+  } catch (err) {
+    done(err, null);
+  }
+});
+
 export default passport.use(
   new Strategy(
     {
@@ -34,7 +43,7 @@ export default passport.use(
           const newSavedUser = await newUser.save();
           return done(null, newSavedUser);
         }
-        return done(null, findUser)
+        return done(null, findUser);
       } catch (err) {
         console.log(err);
       }
